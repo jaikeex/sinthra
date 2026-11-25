@@ -1,0 +1,23 @@
+{
+    "name": "@sinthra/api",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "node --watch --env-file-if-exists=../../.env src/server.ts",
+        "start": "node src/server.ts",
+        "lint": "eslint .",
+        "format": "prettier --write .",
+        "typecheck": "tsc --noEmit",
+        "test": "vitest run"
+    },
+    "dependencies": {
+        "@fastify/type-provider-typebox": "^6.3.0",
+        "@sinthra/types": "workspace:*",
+        "fastify": "^5.12.8",
+        "typebox": "^1.4.7"
+    },
+    "devDependencies": {
+        "@types/node": "~24.19.2",
+        "vitest": "^5.1.1"
+    }
+}
