@@ -1,0 +1,28 @@
+pre-commit:
+    jobs:
+        - name: eslint
+          glob: '*.{js,ts}'
+          run: pnpm exec eslint --fix --no-warn-ignored {staged_files}
+          stage_fixed: true
+
+        - name: prettier
+          run: pnpm exec prettier --write --ignore-unknown {staged_files}
+          stage_fixed: true
+
+pre-push:
+    parallel: true
+    jobs:
+        - name: typecheck
+          run: pnpm typecheck
+        - name: test
+          run: pnpm test
+
+prepare-commit-msg:
+    scripts:
+        'scope-prefix.sh':
+            runner: sh
+
+commit-msg:
+    scripts:
+        'reject-bare-prefix.sh':
+            runner: sh
