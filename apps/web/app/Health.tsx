@@ -42,10 +42,10 @@ export function Health() {
         case 'loaded':
             return (
                 <dl>
-                    <dt>Status</dt>
-                    <dd>{state.health.status}</dd>
-                    <dt>Version</dt>
-                    <dd>{state.health.version}</dd>
+                    <dt className="font-semibold">Status</dt>
+                    <dd className="ml-10">{state.health.status}</dd>
+                    <dt className="font-semibold">Version</dt>
+                    <dd className="ml-10">{state.health.version}</dd>
                 </dl>
             );
     }

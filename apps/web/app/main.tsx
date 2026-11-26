@@ -11,8 +11,8 @@ if (!root) {
 
 createRoot(root).render(
     <StrictMode>
-        <main>
-            <h1>Sinthra</h1>
+        <main className="space-y-4 p-4">
+            <h1 className="text-3xl font-bold">Sinthra</h1>
             <Health />
         </main>
     </StrictMode>
