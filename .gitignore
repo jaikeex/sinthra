@@ -8,3 +8,6 @@ node_modules
 # Local configuration; `env.sample` documents every variable.
 .env
 .env.*
+
+# Build output.
+dist

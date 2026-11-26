@@ -33,8 +33,17 @@ cp env.sample .env
 pnpm dev
 ```
 
-This starts the API on the host with reloads on change. Check it with
-`curl http://127.0.0.1:3000/api/health`.
+This starts the API and the web app on the host, both reloading on change:
+
+| URL                                | What it is                                      |
+| ---------------------------------- | ----------------------------------------------- |
+| `http://localhost:5173/`           | Static landing page                             |
+| `http://localhost:5173/app/`       | React SPA, showing the API's health and version |
+| `http://localhost:5173/api/health` | The API, through the Vite dev server's proxy    |
+| `http://127.0.0.1:3000/api/health` | The API directly, at `API_HOST` and `API_PORT`  |
+
+The Vite dev server proxies `/api` to the API, so the SPA calls it same-origin, as it will in
+production.
 
 The API runs its TypeScript source directly with Node's type stripping, so there is no build step
 ([ADR-0007](docs/adr/0007-native-type-stripping-no-build-step.md)). Type errors don't stop it from
@@ -53,7 +62,7 @@ Run from the repository root:
 
 ### Layout
 
-| Path        | Contents                                                                         |
-| ----------- | -------------------------------------------------------------------------------- |
-| `apps/`     | Deployable applications: `api` (Fastify)                                         |
-| `packages/` | Shared packages: `types` (`@sinthra/types`, the API contract as TypeBox schemas) |
+| Path        | Contents                                                                           |
+| ----------- | ---------------------------------------------------------------------------------- |
+| `apps/`     | Deployable applications: `api` (Fastify), `web` (Vite: landing page and React SPA) |
+| `packages/` | Shared packages: `types` (`@sinthra/types`, the API contract as TypeBox schemas)   |
