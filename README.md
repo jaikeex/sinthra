@@ -90,17 +90,38 @@ pnpm stack:down
 ```
 
 `stack:up` builds the images from their Dockerfiles and runs everything in containers, as it will be
-deployed: Postgres plus the services in compose's `stack` profile (the API and the worker). It returns
-once every container passes its healthcheck. `stack:down` stops and removes them all, Postgres
-included; its data volume survives, as with `db:down`.
+deployed: Postgres plus the services in compose's `stack` profile (`web`, `api` and `worker`). It
+returns once every container passes its healthcheck. `stack:down` stops and removes them all,
+Postgres included; its data volume survives, as with `db:down`.
 
-Images report the root `package.json` version with the current commit as build metadata, such as
-`0.1.0+a1b2c3d`. `stack:up` reads both and passes the result in as a build argument, so the version
-in `.env` only applies to the apps run on the host. Uncommitted changes are built in but don't
-show in the version.
+The API and worker images report the root `package.json` version with the current commit as build
+metadata, such as `0.1.0+a1b2c3d`. `stack:up` reads both and passes the result in as a build
+argument, so the version in `.env` only applies to the apps run on the host. Uncommitted changes
+are built in but don't show in the version.
 
-The API container is not published to the host; only other containers reach it. To check it, ask
-from inside:
+`web` is nginx, serving the built Vite assets and proxying `/api/` to the API, so the browser sees
+a single origin. It is the only `stack` service published to the host, on `127.0.0.1:WEB_PORT`;
+Postgres stays on `127.0.0.1:DB_PORT`, as with `db:up`.
+
+| URL                                                  | What it is                                                   |
+| ---------------------------------------------------- | ------------------------------------------------------------ |
+| `http://localhost:WEB_PORT/`                         | Static landing page                                          |
+| `http://localhost:WEB_PORT/app/`                     | React SPA; any other path under `/app/` serves it too        |
+| `http://localhost:WEB_PORT/api/...`                  | The API, proxied by nginx                                    |
+| `http://localhost:WEB_PORT/v1/{traces,logs,metrics}` | Reserved for OTLP ingestion; they answer 404 until it exists |
+
+Every response carries a strict Content Security Policy (same-origin sources only, no framing),
+`X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`, and nginx hides its version.
+There is no TLS yet, so no HSTS either.
+
+nginx overwrites `X-Forwarded-For` and `X-Real-IP` with the connecting client's address, so the
+API never sees a client-supplied value. Request bodies are capped at 1 MB, and static assets are
+gzipped but API responses aren't, which rules out BREACH-style attacks on them. The access log,
+in `docker compose logs web`, records paths without query strings and without the Referer, so
+tokens in URLs never reach it.
+
+The API and the worker have no published ports. To check the API directly, ask from inside its
+container:
 
 ```sh
 docker compose --project-directory . --file infra/compose.yaml exec api node --eval "fetch('http://127.0.0.1:3000/api/health').then((r) => r.text()).then(console.log)"
@@ -114,6 +135,20 @@ log shows the version, then the shutdown:
 ```sh
 docker compose --project-directory . --file infra/compose.yaml logs worker
 ```
+
+#### Verifying the stack by hand
+
+After `pnpm stack:up`:
+
+1. `docker compose --project-directory . --file infra/compose.yaml --profile stack ps` lists
+   `database`, `api`, `worker` and `web`, all `healthy`.
+2. `http://localhost:WEB_PORT/` shows the landing page, and its link opens the SPA.
+3. `/app/` shows status `ok` and the version `0.1.0+<sha>` of the current commit.
+4. A deep link such as `/app/any/path` loads the same SPA, including after a refresh.
+5. The browser console shows no Content Security Policy violations. A 404 for `/favicon.ico` is
+   expected: there is no favicon yet.
+6. `curl -I http://localhost:WEB_PORT/app/` shows the three security headers above, and a
+   `Server: nginx` header with no version.
 
 ### Checks
 
