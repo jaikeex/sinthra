@@ -90,7 +90,7 @@ pnpm stack:down
 ```
 
 `stack:up` builds the images from their Dockerfiles and runs everything in containers, as it will be
-deployed: Postgres plus the services in compose's `stack` profile (for now, the API). It returns
+deployed: Postgres plus the services in compose's `stack` profile (the API and the worker). It returns
 once every container passes its healthcheck. `stack:down` stops and removes them all, Postgres
 included; its data volume survives, as with `db:down`.
 
@@ -104,6 +104,15 @@ from inside:
 
 ```sh
 docker compose --project-directory . --file infra/compose.yaml exec api node --eval "fetch('http://127.0.0.1:3000/api/health').then((r) => r.text()).then(console.log)"
+```
+
+The worker container is healthy while its heartbeat file is no older than two
+`WORKER_HEARTBEAT_INTERVAL`s. `docker compose stop` sends it SIGTERM, which is where the shutdown
+path gets exercised for real: on a Windows host nothing can send it SIGTERM, only Ctrl+C. Its
+log shows the version, then the shutdown:
+
+```sh
+docker compose --project-directory . --file infra/compose.yaml logs worker
 ```
 
 ### Checks

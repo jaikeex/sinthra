@@ -45,5 +45,27 @@ services:
             retries: 3
             start_period: 10s
 
+    worker:
+        profiles: [stack]
+        build:
+            context: .
+            dockerfile: apps/worker/Dockerfile
+            args:
+                SINTHRA_VERSION: ${SINTHRA_IMAGE_VERSION:-}
+        environment:
+            WORKER_HEARTBEAT_INTERVAL: 10
+        healthcheck:
+            # No port to probe: healthy means the heartbeat was touched within two intervals.
+            # A missing file raises, which exits non-zero too.
+            test:
+                - CMD
+                - python
+                - -c
+                - "import os, sys, time; sys.exit(time.time() - os.path.getmtime(os.environ['WORKER_HEARTBEAT_FILE']) > 2 * float(os.environ['WORKER_HEARTBEAT_INTERVAL']))"
+            interval: 10s
+            timeout: 5s
+            retries: 3
+            start_period: 10s
+
 volumes:
     db-data:
