@@ -82,6 +82,30 @@ pnpm dev:worker
 It logs its version, touches `WORKER_HEARTBEAT_FILE` every `WORKER_HEARTBEAT_INTERVAL` seconds, and
 exits cleanly on Ctrl+C or SIGTERM. It has no network port; the heartbeat file shows it is alive.
 
+### Stack
+
+```sh
+pnpm stack:up
+pnpm stack:down
+```
+
+`stack:up` builds the images from their Dockerfiles and runs everything in containers, as it will be
+deployed: Postgres plus the services in compose's `stack` profile (for now, the API). It returns
+once every container passes its healthcheck. `stack:down` stops and removes them all, Postgres
+included; its data volume survives, as with `db:down`.
+
+Images report the root `package.json` version with the current commit as build metadata, such as
+`0.1.0+a1b2c3d`. `stack:up` reads both and passes the result in as a build argument, so the version
+in `.env` only applies to the apps run on the host. Uncommitted changes are built in but don't
+show in the version.
+
+The API container is not published to the host; only other containers reach it. To check it, ask
+from inside:
+
+```sh
+docker compose --project-directory . --file infra/compose.yaml exec api node --eval "fetch('http://127.0.0.1:3000/api/health').then((r) => r.text()).then(console.log)"
+```
+
 ### Checks
 
 Run from the repository root. Each aggregate command covers both the TypeScript and the Python
@@ -103,3 +127,4 @@ side; the `:worker` variants run only the worker's part.
 | `apps/`     | Deployable applications: `api` (Fastify), `web` (Vite: landing page and React SPA), `worker` (Python, uv) |
 | `packages/` | Shared packages: `types` (`@sinthra/types`, the API contract as TypeBox schemas)                          |
 | `infra/`    | Infrastructure: the compose file                                                                          |
+| `scripts/`  | Node scripts behind root commands that a one-line `package.json` script can't express portably            |

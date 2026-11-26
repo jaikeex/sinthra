@@ -2,12 +2,9 @@ name: sinthra
 
 services:
     database:
-        # Community edition, not `-oss`: the Apache-only build lacks compression and continuous
-        # aggregates (ADR-0001). Not `-ha` either: that image adds HA tooling we don't use.
+        # Community edition, not `-oss`: the Apache-only build lacks features.
         image: timescale/timescaledb:2.32.1-pg18
         environment:
-            # `:?` makes compose refuse to start with this message instead of substituting an
-            # empty value, so the database never runs with default or blank credentials.
             POSTGRES_USER: ${DB_USER:?set DB_USER in the root .env}
             POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in the root .env}
             POSTGRES_DB: ${DB_DB:?set DB_DB in the root .env}
@@ -15,17 +12,37 @@ services:
             # Loopback only: the database must not be reachable from the network.
             - 127.0.0.1:${DB_PORT:?set DB_PORT in the root .env}:5432
         volumes:
-            # Postgres 18 images keep PGDATA in a per-major subdirectory, so the volume mounts
-            # the parent; a later major upgrade can then sit beside the old data.
             - db-data:/var/lib/postgresql
         healthcheck:
-            # `$$` defers expansion to the container, where the credentials above are set.
             test:
                 - CMD-SHELL
                 - pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"
             interval: 5s
             timeout: 5s
             retries: 10
+            start_period: 10s
+
+    api:
+        profiles: [stack]
+        build:
+            context: .
+            dockerfile: apps/api/Dockerfile
+            args:
+                SINTHRA_VERSION: ${SINTHRA_IMAGE_VERSION:-}
+        environment:
+            # All interfaces, so other containers can reach it; without `ports` the host can't.
+            API_HOST: 0.0.0.0
+            API_PORT: 3000
+        healthcheck:
+            # The image has no curl or wget, so Node itself makes the request.
+            test:
+                - CMD
+                - node
+                - --eval
+                - "fetch('http://127.0.0.1:' + process.env.API_PORT + '/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+            interval: 10s
+            timeout: 5s
+            retries: 3
             start_period: 10s
 
 volumes:
