@@ -25,7 +25,12 @@ pnpm install
 cp env.sample .env
 ```
 
-`env.sample` documents every variable. The API refuses to start if one is missing or invalid.
+`env.sample` documents every variable. The API and the worker refuse to start if one they need is
+missing or invalid.
+
+The Python worker is a [uv](https://docs.astral.sh/uv/) project in `apps/worker`, outside the pnpm
+workspace. It needs no separate install step: every `uv run` in the root scripts syncs its
+environment first.
 
 ### Run
 
@@ -49,20 +54,32 @@ The API runs its TypeScript source directly with Node's type stripping, so there
 ([ADR-0007](docs/adr/0007-native-type-stripping-no-build-step.md)). Type errors don't stop it from
 starting, so run `pnpm typecheck` as well.
 
+The worker runs separately, on the host:
+
+```sh
+pnpm dev:worker
+```
+
+It logs its version, touches `WORKER_HEARTBEAT_FILE` every `WORKER_HEARTBEAT_INTERVAL` seconds, and
+exits cleanly on Ctrl+C or SIGTERM. It has no network port; the heartbeat file shows it is alive.
+
 ### Checks
 
-Run from the repository root:
+Run from the repository root. Each aggregate command covers both the TypeScript and the Python
+side; the `:worker` variants run only the worker's part.
 
-| Command          | What it does                                             |
-| ---------------- | -------------------------------------------------------- |
-| `pnpm lint`      | ESLint with type-aware rules over the whole repository   |
-| `pnpm typecheck` | `tsc --noEmit` in every package                          |
-| `pnpm test`      | Vitest in every package that has tests                   |
-| `pnpm format`    | Prettier rewrites files; `pnpm format:check` only checks |
+| Command          | TypeScript                             | Worker (`pnpm <command>:worker`) |
+| ---------------- | -------------------------------------- | -------------------------------- |
+| `pnpm lint`      | ESLint with type-aware rules           | `ruff check`                     |
+| `pnpm typecheck` | `tsc --noEmit` in every package        | `mypy --strict`                  |
+| `pnpm test`      | Vitest in every package that has tests | pytest                           |
+| `pnpm format`    | Prettier rewrites files                | `ruff format`                    |
+
+`pnpm format:check` checks formatting on both sides without rewriting anything.
 
 ### Layout
 
-| Path        | Contents                                                                           |
-| ----------- | ---------------------------------------------------------------------------------- |
-| `apps/`     | Deployable applications: `api` (Fastify), `web` (Vite: landing page and React SPA) |
-| `packages/` | Shared packages: `types` (`@sinthra/types`, the API contract as TypeBox schemas)   |
+| Path        | Contents                                                                                                  |
+| ----------- | --------------------------------------------------------------------------------------------------------- |
+| `apps/`     | Deployable applications: `api` (Fastify), `web` (Vite: landing page and React SPA), `worker` (Python, uv) |
+| `packages/` | Shared packages: `types` (`@sinthra/types`, the API contract as TypeBox schemas)                          |

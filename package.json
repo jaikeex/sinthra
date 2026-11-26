@@ -9,11 +9,17 @@
     },
     "scripts": {
         "dev": "pnpm --recursive --parallel run dev",
-        "lint": "eslint .",
-        "format": "prettier --write .",
-        "format:check": "prettier --check .",
-        "typecheck": "pnpm --recursive run typecheck",
-        "test": "pnpm --recursive run test",
+        "dev:worker": "uv run --project apps/worker --env-file .env python -m sinthra_worker",
+        "lint": "eslint . && pnpm run lint:worker",
+        "lint:worker": "uv run --directory apps/worker ruff check",
+        "format": "prettier --write . && pnpm run format:worker",
+        "format:worker": "uv run --directory apps/worker ruff format",
+        "format:check": "prettier --check . && pnpm run format:check:worker",
+        "format:check:worker": "uv run --directory apps/worker ruff format --check",
+        "typecheck": "pnpm --recursive run typecheck && pnpm run typecheck:worker",
+        "typecheck:worker": "uv run --directory apps/worker mypy",
+        "test": "pnpm --recursive run test && pnpm run test:worker",
+        "test:worker": "uv run --directory apps/worker pytest",
         "prepare": "lefthook install"
     },
     "devDependencies": {

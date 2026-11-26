@@ -6,6 +6,7 @@ export default defineConfig(
     globalIgnores([
         '**/node_modules/',
         '**/dist/',
+        '**/.venv/',
         '.scratch/',
         'docs/comments/'
     ]),

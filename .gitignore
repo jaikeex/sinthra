@@ -11,3 +11,11 @@ node_modules
 
 # Build output.
 dist
+
+# Python tooling.
+.venv
+__pycache__
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.heartbeat

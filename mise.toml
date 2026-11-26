@@ -1,3 +1,7 @@
 [tools]
 node = "24.22.3"
 pnpm = "12.21.0"
+
+# Must match `requires-python` in apps/worker/pyproject.toml; change both together.
+python = "3.15.2"
+uv = "0.13.10"

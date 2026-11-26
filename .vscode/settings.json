@@ -72,5 +72,6 @@
             "bold": false,
             "italic": false
         }
-    ]
+    ],
+    "python.analysis.extraPaths": ["./apps/worker/src"]
 }
