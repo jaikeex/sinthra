@@ -9,6 +9,8 @@
     },
     "scripts": {
         "dev": "pnpm --recursive --parallel run dev",
+        "db:up": "docker compose --project-directory . --file infra/compose.yaml up --detach --wait",
+        "db:down": "docker compose --project-directory . --file infra/compose.yaml down",
         "dev:worker": "uv run --project apps/worker --env-file .env python -m sinthra_worker",
         "lint": "eslint . && pnpm run lint:worker",
         "lint:worker": "uv run --directory apps/worker ruff check",

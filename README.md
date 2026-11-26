@@ -18,19 +18,38 @@ mise install
 The root `package.json` also pins pnpm through `packageManager`, so pnpm uses the right version even
 without mise.
 
+Postgres runs in Docker, so you also need Docker with Compose v2 (Docker Desktop on Windows).
+
 ### Install and configure
 
 ```sh
 pnpm install
-cp env.sample .env
+cp .env.sample .env
 ```
 
-`env.sample` documents every variable. The API and the worker refuse to start if one they need is
-missing or invalid.
+`.env.sample` documents every variable. The API and the worker refuse to start if one they need is
+missing or invalid. `POSTGRES_PASSWORD` is blank in the sample on purpose: set it before starting
+Postgres.
 
 The Python worker is a [uv](https://docs.astral.sh/uv/) project in `apps/worker`, outside the pnpm
 workspace. It needs no separate install step: every `uv run` in the root scripts syncs its
 environment first.
+
+### Database
+
+```sh
+pnpm db:up
+pnpm db:down
+```
+
+`db:up` starts Postgres with TimescaleDB in Docker and returns once its `pg_isready` healthcheck
+passes. It listens on `127.0.0.1:DB_PORT` only, with the credentials from `.env`; compose
+refuses to start if any of them is missing. Data lives in the `sinthra_db-data` volume, so it
+survives `db:down`. To wipe it, run `docker volume rm sinthra_db-data` after `db:down`.
+
+Both scripts run compose on [`infra/compose.yaml`](infra/compose.yaml) with the repo root as the
+project directory, which is what makes compose read the root `.env`. Nothing connects to the
+database yet.
 
 ### Run
 
@@ -83,3 +102,4 @@ side; the `:worker` variants run only the worker's part.
 | ----------- | --------------------------------------------------------------------------------------------------------- |
 | `apps/`     | Deployable applications: `api` (Fastify), `web` (Vite: landing page and React SPA), `worker` (Python, uv) |
 | `packages/` | Shared packages: `types` (`@sinthra/types`, the API contract as TypeBox schemas)                          |
+| `infra/`    | Infrastructure: the compose file                                                                          |

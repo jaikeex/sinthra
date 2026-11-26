@@ -5,9 +5,8 @@ docs/agents
 
 node_modules
 
-# Local configuration; `env.sample` documents every variable.
+# Local configuration.
 .env
-.env.*
 
 # Build output.
 dist
