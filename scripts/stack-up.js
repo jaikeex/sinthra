@@ -3,18 +3,10 @@
 // A script rather than a one-line package.json command: the version needs the commit SHA from git,
 // and command substitution has no syntax shared by Windows `cmd` and POSIX `sh`.
 
-import { execFileSync, spawnSync } from 'node:child_process';
-import { dirname } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import process from 'node:process';
 
-import manifest from '../package.json' with { type: 'json' };
-
-const root = dirname(import.meta.dirname);
-
-const sha = execFileSync('git', ['rev-parse', '--short', 'HEAD'], {
-    cwd: root,
-    encoding: 'utf8'
-}).trim();
+import { buildVersion, root } from './build-version.js';
 
 const compose = spawnSync(
     'docker',
@@ -36,7 +28,7 @@ const compose = spawnSync(
         stdio: 'inherit',
         env: {
             ...process.env,
-            SINTHRA_IMAGE_VERSION: `${manifest.version}+${sha}`
+            SINTHRA_IMAGE_VERSION: buildVersion()
         }
     }
 );

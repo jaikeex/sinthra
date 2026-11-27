@@ -86,6 +86,7 @@ exits cleanly on Ctrl+C or SIGTERM. It has no network port; the heartbeat file s
 
 ```sh
 pnpm stack:up
+pnpm stack:smoke
 pnpm stack:down
 ```
 
@@ -136,33 +137,46 @@ log shows the version, then the shutdown:
 docker compose --project-directory . --file infra/compose.yaml logs worker
 ```
 
-#### Verifying the stack by hand
+#### Verifying the stack
 
-After `pnpm stack:up`:
+After `pnpm stack:up`, `pnpm stack:smoke` checks the stack over HTTP through nginx on
+`127.0.0.1:WEB_PORT`, as a browser sees it. It doesn't start or stop anything. It checks that:
 
-1. `docker compose --project-directory . --file infra/compose.yaml --profile stack ps` lists
-   `database`, `api`, `worker` and `web`, all `healthy`.
-2. `http://localhost:WEB_PORT/` shows the landing page, and its link opens the SPA.
-3. `/app/` shows status `ok` and the version `0.1.0+<sha>` of the current commit.
-4. A deep link such as `/app/any/path` loads the same SPA, including after a refresh.
-5. The browser console shows no Content Security Policy violations. A 404 for `/favicon.ico` is
+- `/api/health` answers `200` with status `ok` and the version of the current commit.
+- `/app/` and a deep link under it serve the SPA's entry page.
+- Every response carries the three security headers above and a `Server: nginx` header with no
+  version.
+- The reserved `/v1/traces` path answers `404`.
+
+Every check runs even after one fails, each prints `PASS` or `FAIL`, and the script exits non-zero
+if any failed. A version mismatch usually means the stack was built from an older commit: run
+`stack:up` again.
+
+Container health needs no check of its own: `stack:up` returns only once every container passes
+its healthcheck. Two things are left to check by hand, in a browser:
+
+1. `http://localhost:WEB_PORT/` shows the landing page, and its link opens the SPA, which shows
+   status `ok` and the version.
+2. The browser console shows no Content Security Policy violations. A 404 for `/favicon.ico` is
    expected: there is no favicon yet.
-6. `curl -I http://localhost:WEB_PORT/app/` shows the three security headers above, and a
-   `Server: nginx` header with no version.
 
 ### Checks
 
 Run from the repository root. Each aggregate command covers both the TypeScript and the Python
-side; the `:worker` variants run only the worker's part.
+side; the `:ts` variants run only the TypeScript part and the `:worker` variants only the worker's.
 
-| Command          | TypeScript                             | Worker (`pnpm <command>:worker`) |
+| Command          | TypeScript (`pnpm <command>:ts`)       | Worker (`pnpm <command>:worker`) |
 | ---------------- | -------------------------------------- | -------------------------------- |
 | `pnpm lint`      | ESLint with type-aware rules           | `ruff check`                     |
 | `pnpm typecheck` | `tsc --noEmit` in every package        | `mypy --strict`                  |
 | `pnpm test`      | Vitest in every package that has tests | pytest                           |
 | `pnpm format`    | Prettier rewrites files                | `ruff format`                    |
 
-`pnpm format:check` checks formatting on both sides without rewriting anything.
+`pnpm format:check` checks formatting on both sides without rewriting anything; it splits into
+`format:check:ts` and `format:check:worker` the same way.
+
+`pnpm build` runs the `build` script of every workspace package that defines one. Today that is
+only the web app; the API runs its TypeScript directly and has no build step.
 
 ### Layout
 
