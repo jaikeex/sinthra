@@ -1,0 +1,150 @@
+name: CI
+
+on:
+    push:
+        branches: [master]
+    pull_request:
+    workflow_dispatch:
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+    cancel-in-progress: true
+
+permissions:
+    contents: read
+
+jobs:
+    typescript:
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            # Versions come from mise.toml alone; this job needs only its Node side.
+            - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+              with:
+                  install_args: node pnpm
+
+            - name: Locate the pnpm store
+              id: pnpm-store
+              run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+            - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: ${{ steps.pnpm-store.outputs.path }}
+                  key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+                  restore-keys: pnpm-store-${{ runner.os }}-
+
+            - name: Install dependencies
+              id: install
+              run: pnpm install --frozen-lockfile
+
+            - name: Lint
+              if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+              run: pnpm lint:ts
+
+            - name: Check formatting
+              if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+              run: pnpm format:check:ts
+
+            - name: Typecheck
+              if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+              run: pnpm typecheck:ts
+
+            - name: Test
+              if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+              run: pnpm test:ts
+
+            - name: Build
+              if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+              run: pnpm build
+
+    worker:
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+        env:
+            UV_LOCKED: '1'
+            UV_PYTHON_DOWNLOADS: never
+            pnpm_config_verify_deps_before_run: 'false'
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            # The checks are root pnpm scripts, so this job needs Node and pnpm too.
+            - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+              with:
+                  install_args: node pnpm python uv
+
+            - name: Locate the uv cache
+              id: uv-cache
+              run: echo "path=$(uv cache dir)" >> "$GITHUB_OUTPUT"
+
+            - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: ${{ steps.uv-cache.outputs.path }}
+                  key: uv-cache-${{ runner.os }}-${{ hashFiles('apps/worker/uv.lock') }}
+                  restore-keys: uv-cache-${{ runner.os }}-
+
+            - name: Install dependencies
+              id: install
+              run: uv sync --locked --directory apps/worker
+
+            - name: Lint
+              if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+              run: pnpm lint:worker
+
+            - name: Check formatting
+              if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+              run: pnpm format:check:worker
+
+            - name: Typecheck
+              if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+              run: pnpm typecheck:worker
+
+            - name: Test
+              if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+              run: pnpm test:worker
+
+            # Runs only when every step passed, which is also the only time the cache is saved.
+            # Pre-built wheels are dropped: downloading them again is as fast as restoring them.
+            - name: Trim the uv cache
+              run: uv cache prune --ci
+
+    stack:
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+        env:
+            pnpm_config_verify_deps_before_run: 'false'
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+              with:
+                  install_args: node pnpm
+
+            # A password made fresh for this run and masked in the log, so the stack needs no
+            # repository secret and none is written into the workflow.
+            - name: Create .env
+              run: |
+                  password="$(openssl rand -hex 32)"
+                  echo "::add-mask::$password"
+                  { grep -v '^DB_PASSWORD=' .env.sample; echo "DB_PASSWORD=$password"; } > .env
+
+            - name: Start the stack
+              run: pnpm stack:up
+
+            - name: Smoke-test the stack
+              run: pnpm stack:smoke
+
+            - name: Print container logs
+              if: ${{ failure() }}
+              run: pnpm stack:logs
+
+            - name: Stop the stack
+              if: ${{ always() }}
+              run: pnpm stack:down

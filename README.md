@@ -92,8 +92,9 @@ pnpm stack:down
 
 `stack:up` builds the images from their Dockerfiles and runs everything in containers, as it will be
 deployed: Postgres plus the services in compose's `stack` profile (`web`, `api` and `worker`). It
-returns once every container passes its healthcheck. `stack:down` stops and removes them all,
-Postgres included; its data volume survives, as with `db:down`.
+returns once every container passes its healthcheck. `stack:logs` prints every container's logs,
+which is where to look when a healthcheck fails. `stack:down` stops and removes them all, Postgres
+included; its data volume survives, as with `db:down`.
 
 The API and worker images report the root `package.json` version with the current commit as build
 metadata, such as `0.1.0+a1b2c3d`. `stack:up` reads both and passes the result in as a build

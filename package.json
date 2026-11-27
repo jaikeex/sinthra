@@ -13,6 +13,7 @@
         "db:down": "docker compose --project-directory . --file infra/compose.yaml down",
         "stack:up": "node scripts/stack-up.js",
         "stack:smoke": "node --env-file=.env scripts/stack-smoke.js",
+        "stack:logs": "docker compose --project-directory . --file infra/compose.yaml --profile stack logs --no-color --timestamps",
         "stack:down": "docker compose --project-directory . --file infra/compose.yaml --profile stack down",
         "dev:worker": "uv run --project apps/worker --env-file .env python -m sinthra_worker",
         "lint": "pnpm run lint:ts && pnpm run lint:worker",
